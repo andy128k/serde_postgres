@@ -194,7 +194,10 @@ impl<'de, 'a, 'b> de::Deserializer<'de> for &'b mut Deserializer<'a> {
 impl<'de, 'a> de::MapAccess<'de> for Deserializer<'a> {
     type Error = DeError;
 
-    fn next_key_seed<T: de::DeserializeSeed<'de>>(&mut self, seed: T) -> DeResult<Option<T::Value>> {
+    fn next_key_seed<T: de::DeserializeSeed<'de>>(
+        &mut self,
+        seed: T,
+    ) -> DeResult<Option<T::Value>> {
         if self.index >= self.input.columns().len() {
             return Ok(None);
         }
@@ -241,7 +244,7 @@ mod tests {
     }
 
     async fn setup_and_connect_to_db() -> Client {
-        let url  = get_postgres_url_from_env();
+        let url = get_postgres_url_from_env();
         let (client, conn) = connect(&url, NoTls).await.unwrap();
         tokio::spawn(async move {
             conn.await.unwrap();
@@ -504,25 +507,35 @@ mod tests {
     }
 
     #[test]
-    fn sync_postgres_still_works() -> Result<(), postgres::Error>{
+    fn sync_postgres_still_works() -> Result<(), postgres::Error> {
         use postgres::{Client, NoTls};
         #[derive(Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-        struct Person { name: String, age: i32 };
+        struct Person {
+            name: String,
+            age: i32,
+        }
 
         let url = get_postgres_url_from_env();
         let mut client = Client::connect(&url, NoTls).unwrap();
         let mut client = client.transaction().unwrap();
 
-        client.execute("CREATE TABLE IF NOT EXISTS TestPerson (
+        client.execute(
+            "CREATE TABLE IF NOT EXISTS TestPerson (
             name VARCHAR NOT NULL,
             age INT NOT NULL
-        )", &[])?;
+        )",
+            &[],
+        )?;
 
-        client.execute("INSERT INTO TestPerson (name, age) VALUES ($1, $2)",
-                       &[&"Jane", &23i32])?;
+        client.execute(
+            "INSERT INTO TestPerson (name, age) VALUES ($1, $2)",
+            &[&"Jane", &23i32],
+        )?;
 
-        client.execute("INSERT INTO TestPerson (name, age) VALUES ($1, $2)",
-                       &[&"Alice", &32i32])?;
+        client.execute(
+            "INSERT INTO TestPerson (name, age) VALUES ($1, $2)",
+            &[&"Alice", &32i32],
+        )?;
 
         let rows = client.query("SELECT name, age FROM Person", &[])?;
 
@@ -530,13 +543,18 @@ mod tests {
         people.sort();
 
         let expected = vec![
-            Person { name: "Alice".into(), age:  32 },
-            Person { name: "Jane".into(),  age: 23 },
+            Person {
+                name: "Alice".into(),
+                age: 32,
+            },
+            Person {
+                name: "Jane".into(),
+                age: 23,
+            },
         ];
 
         assert_eq!(people, expected);
 
         Ok(())
     }
-
 }
